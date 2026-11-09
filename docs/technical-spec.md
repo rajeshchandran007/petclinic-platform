@@ -124,6 +124,7 @@ CIDRs are non-overlapping to allow future VPC peering if needed.
 | Route Table | 1 public route table, `0.0.0.0/0` → IGW |
 | NAT Gateway | None (intentional) |
 | VPC Endpoints | None (not needed with public subnets) |
+| VPC Flow Logs | CloudWatch Logs, 30-day retention; dev `REJECT`, prod `ALL` |
 
 ### Subnet Settings
 
@@ -160,6 +161,7 @@ Four security groups per environment. Security groups are the **primary access c
 | Inter-node communication | Ingress | All | All | Self (EKS Node SG) |
 | Kubelet API from cluster | Ingress | TCP | 10250 | EKS Cluster SG |
 | NodePort services | Ingress | TCP | 30000-32767 | ALB SG |
+| ALB IP-mode targets / health checks | Ingress | TCP | 8080 | ALB SG |
 | All outbound | Egress | All | All | `0.0.0.0/0` |
 
 ### RDS Security Group
@@ -189,9 +191,11 @@ Four security groups per environment. Security groups are the **primary access c
 | Parameter | Dev | Prod |
 |-----------|-----|------|
 | Cluster Name | `petclinic-dev` | `petclinic-prod` |
-| Kubernetes Version | `1.29` | `1.29` |
+| Kubernetes Version | `1.35` | `1.35` |
 | API Server Endpoint | Public | Public |
 | Authentication Mode | `API_AND_CONFIG_MAP` | `API_AND_CONFIG_MAP` |
+| Support Policy | `STANDARD` (no extended-support billing) | `STANDARD` |
+| Admin Access | EKS access entries (Terraform caller + `eks_cluster_admin_principal_arns`) | Same |
 | Cluster Logging | `api`, `audit`, `authenticator` | `api`, `audit`, `authenticator` |
 | Subnets | Public (AZ a + b) | Public (AZ a + b) |
 
@@ -217,7 +221,7 @@ Created from EKS cluster identity issuer URL. Required for IRSA (IAM Roles for S
 | Max Size | 4 | 4 |
 | Desired Size | 2 | 2 |
 | Disk Size | 20 GB | 20 GB |
-| AMI Type | `AL2_ARM_64` | `AL2_ARM_64` |
+| AMI Type | `AL2023_ARM_64_STANDARD` | `AL2023_ARM_64_STANDARD` |
 
 > **Cost note:** t4g.small instances (2 vCPU, 2 GiB) are eligible for the AWS Graviton free trial (750 hrs/month until Dec 2026). Both dev and prod use identical sizing — this is a cost optimization for a learning project. In production, you would use larger instances (e.g., m7g.xlarge). Students should understand this trade-off.
 
@@ -239,6 +243,15 @@ Created from EKS cluster identity issuer URL. Required for IRSA (IAM Roles for S
 | `aws-ebs-csi-driver` | EBS PersistentVolumes (Prometheus, Grafana) | Yes (`AmazonEBSCSIDriverPolicy`) |
 
 Add-on versions pinned (not `latest`). Resolve conflicts strategy: `OVERWRITE` for initial setup.
+
+| Add-on | Pinned Version (K8s 1.35) |
+|--------|---------------------------|
+| `vpc-cni` | `v1.22.4-eksbuild.10` |
+| `kube-proxy` | `v1.35.3-eksbuild.64` |
+| `coredns` | `v1.13.2-eksbuild.68` |
+| `aws-ebs-csi-driver` | `v1.67.2-eksbuild.1` |
+
+> **Version note (2026-11):** EKS no longer offers Kubernetes 1.29 (oldest available is 1.31), and AL2 AMIs are not published for 1.33+. The cluster runs 1.35 on AL2023 ARM64 nodes. Upgrade procedure: [runbook](./runbook.md#procedure-upgrade-eks-add-on-versions).
 
 ---
 
@@ -1128,12 +1141,12 @@ No NAT Gateway cost ($0 saved vs ~$35-65/mo with NAT).
 |---------------|------|-------------|---------|
 | `project` | string | Project name | `"petclinic"` |
 | `environment` | string | Environment | — |
-| `cluster_version` | string | Kubernetes version | `"1.29"` |
+| `cluster_version` | string | Kubernetes version | `"1.35"` |
 | `subnet_ids` | list(string) | Subnet IDs for cluster | — |
 | `cluster_sg_id` | string | Cluster security group ID | — |
 | `node_sg_id` | string | Node security group ID | — |
 | `node_instance_types` | list(string) | Instance types for nodes | `["t4g.small"]` |
-| `node_ami_type` | string | AMI type for nodes | `"AL2_ARM_64"` |
+| `node_ami_type` | string | AMI type for nodes | `"AL2023_ARM_64_STANDARD"` |
 | `node_min_size` | number | Min node count | `2` |
 | `node_max_size` | number | Max node count | `4` |
 | `node_desired_size` | number | Desired node count | `2` |

@@ -2,3 +2,15 @@
 aws_region  = "ap-south-1"
 environment = "prod"
 project     = "petclinic"
+
+# Networking (technical-spec.md#cidr-allocation) — defaults already match the spec
+vpc_cidr            = "10.1.0.0/16"
+public_subnet_cidrs = ["10.1.1.0/24", "10.1.2.0/24"]
+availability_zones  = ["ap-south-1a", "ap-south-1b"]
+
+# EKS (technical-spec.md#eks-cluster)
+eks_cluster_version = "1.35"
+# Restrict the public API endpoint to your own IP(s): curl -s https://checkip.amazonaws.com
+eks_public_access_cidrs = ["203.0.113.10/32"]
+# Extra cluster admins (IAM users/roles, not root). The Terraform caller is added automatically.
+eks_cluster_admin_principal_arns = []
