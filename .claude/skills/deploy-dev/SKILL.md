@@ -22,7 +22,7 @@ Deploy services to the petclinic-dev namespace.
    ```
    If not configured, run:
    ```bash
-   aws eks update-kubeconfig --name petclinic-dev --region eu-central-1
+   aws eks update-kubeconfig --name petclinic-dev --region ap-south-1
    ```
 
 2. Check if ArgoCD is installed:

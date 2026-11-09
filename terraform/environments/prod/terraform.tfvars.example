@@ -1,0 +1,4 @@
+# Copy to terraform.tfvars (gitignored) and adjust. Never put secrets here.
+aws_region  = "ap-south-1"
+environment = "prod"
+project     = "petclinic"

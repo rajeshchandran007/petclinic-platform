@@ -13,7 +13,7 @@ set -euo pipefail
 #   ./scripts/stop-env.sh prod
 #
 
-REGION="${AWS_DEFAULT_REGION:-eu-central-1}"
+REGION="${AWS_DEFAULT_REGION:-ap-south-1}"
 
 usage() {
   echo "Usage: $0 <environment>"

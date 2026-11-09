@@ -1,13 +1,21 @@
 {
   "env": {
-    "AWS_REGION": "eu-central-1",
+    "AWS_REGION": "ap-south-1",
     "AWS_PROFILE": "default"
   },
   "permissions": {
     "allow": [
       "Bash(git init *)",
       "Bash(git checkout *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(terraform version *)",
+      "Bash(aws --version)",
+      "Bash(aws sts *)",
+      "Bash(terraform plan *)",
+      "Bash(terraform init *)",
+      "Bash(python -c \"import json;json.load\\(open\\('.claude/settings.local.json'\\)\\)\")",
+      "Bash(sed -i 's/533267262133/015904251830/g' .claude/rules/helm.md)",
+      "Bash(echo \"remaining_exit=$?\")"
     ]
   },
   "enabledMcpjsonServers": [

@@ -86,7 +86,7 @@ Create `.mcp.json` at the project root with all MCP servers needed for the infra
 - [ ] `.mcp.json` at petclinic-platform root
 - [ ] Terraform MCP server configured (`awslabs.terraform-mcp-server`)
 - [ ] AWS Knowledge MCP configured (`aws-knowledge-mcp`)
-- [ ] AWS Pricing MCP configured (`awslabs.aws-pricing-mcp-server`, region: eu-central-1)
+- [ ] AWS Pricing MCP configured (`awslabs.aws-pricing-mcp-server`, region: ap-south-1)
 - [ ] Context7 MCP configured (library documentation)
 - [ ] Atlassian MCP configured (Jira ticket management)
 - [ ] No secrets stored in `.mcp.json` — credentials come from user's local environment
@@ -191,7 +191,7 @@ Start a new Claude Code session in petclinic-platform/ and verify the full confi
 # EPIC E-1: Foundation & Remote State
 
 **Priority:** P0
-**Description:** Set up Terraform project structure, remote state backend (S3 + DynamoDB), provider configuration, and environment layout. This is the foundation everything else builds on.
+**Description:** Set up Terraform project structure, remote state backend (S3 with native S3 locking), provider configuration, and environment layout. This is the foundation everything else builds on.
 **Blocked by:** None
 **Blocks:** E-2, E-3, E-4, E-5, E-6, E-7
 
@@ -220,7 +220,7 @@ Create the Terraform directory structure in petclinic-platform with separate env
 
 ---
 
-### PETPLAT-2: Create S3 bucket and DynamoDB table for Terraform state
+### PETPLAT-2: Create S3 bucket for Terraform state
 
 **Type:** Task
 **Priority:** P0
@@ -229,7 +229,7 @@ Create the Terraform directory structure in petclinic-platform with separate env
 **Labels:** terraform, foundation, aws
 
 **Description:**
-Create a bootstrap script that provisions the S3 bucket (versioning enabled, encryption enabled) and DynamoDB table (LockID partition key) used for Terraform remote state. This is a one-time setup done outside Terraform itself.
+Create a bootstrap script that provisions the S3 bucket (versioning enabled, encryption enabled) used for Terraform remote state. State locking uses Terraform's native S3 lock file (`use_lockfile = true`), so no DynamoDB table is needed. This is a one-time setup done outside Terraform itself.
 
 **Technical Spec:** [Terraform State Backend](./technical-spec.md#terraform-state-backend)
 
@@ -238,9 +238,8 @@ Create a bootstrap script that provisions the S3 bucket (versioning enabled, enc
 - [ ] S3 bucket created with versioning enabled
 - [ ] S3 bucket has server-side encryption (AES256 or KMS)
 - [ ] S3 bucket has public access blocked (all 4 settings)
-- [ ] DynamoDB table created with `LockID` as partition key (String)
 - [ ] Script is idempotent (safe to run multiple times)
-- [ ] Script accepts region as parameter (default: eu-central-1)
+- [ ] Script accepts region as parameter (default: ap-south-1)
 
 ---
 
@@ -254,16 +253,16 @@ Create a bootstrap script that provisions the S3 bucket (versioning enabled, enc
 **Blocked by:** PETPLAT-2
 
 **Description:**
-Configure the S3 backend in `terraform/environments/dev/backend.tf` pointing to the state bucket with key `petclinic/dev/terraform.tfstate`. Configure DynamoDB locking.
+Configure the S3 backend in `terraform/environments/dev/backend.tf` pointing to the state bucket with key `petclinic/dev/terraform.tfstate`. Enable native S3 locking (`use_lockfile = true`).
 
 **Technical Spec:** [Terraform State Backend](./technical-spec.md#terraform-state-backend)
 
 **Acceptance Criteria:**
 - [ ] `backend.tf` configured with S3 backend
 - [ ] State key: `petclinic/dev/terraform.tfstate`
-- [ ] DynamoDB table referenced for locking
+- [ ] Native S3 locking enabled (`use_lockfile = true`)
 - [ ] Encryption enabled
-- [ ] Region set to eu-central-1
+- [ ] Region set to ap-south-1
 - [ ] `terraform init` succeeds
 
 ---
@@ -285,7 +284,7 @@ Configure the S3 backend in `terraform/environments/prod/backend.tf` with key `p
 **Acceptance Criteria:**
 - [ ] `backend.tf` configured with S3 backend
 - [ ] State key: `petclinic/prod/terraform.tfstate`
-- [ ] DynamoDB table referenced for locking
+- [ ] Native S3 locking enabled (`use_lockfile = true`)
 - [ ] Encryption enabled
 - [ ] `terraform init` succeeds
 
@@ -300,15 +299,15 @@ Configure the S3 backend in `terraform/environments/prod/backend.tf` with key `p
 **Labels:** terraform, foundation
 
 **Description:**
-Set up provider configuration and version constraints in both environment root modules. Pin Terraform >= 1.6.0 and AWS provider ~> 5.0.
+Set up provider configuration and version constraints in both environment root modules. Pin Terraform >= 1.10.0 (required for native S3 locking) and AWS provider ~> 5.0.
 
 **Technical Spec:** [General Project Parameters](./technical-spec.md#general-project-parameters)
 
 **Acceptance Criteria:**
-- [ ] `versions.tf` in both dev/ and prod/ with required_version >= 1.6.0
+- [ ] `versions.tf` in both dev/ and prod/ with required_version >= 1.10.0
 - [ ] AWS provider source and version constraint (~> 5.0) defined
 - [ ] `providers.tf` in both environments configuring AWS provider with `var.aws_region`
-- [ ] `variables.tf` defines aws_region variable (default: eu-central-1)
+- [ ] `variables.tf` defines aws_region variable (default: ap-south-1)
 - [ ] `variables.tf` defines environment variable (dev or prod)
 - [ ] `variables.tf` defines project variable (default: petclinic)
 - [ ] Common tags defined: Project, Environment, ManagedBy=terraform
@@ -633,7 +632,7 @@ Call the EKS module from prod environment with prod-appropriate sizing.
 # EPIC E-4: Container Registry (ECR)
 
 **Priority:** P0
-**Description:** Create ECR private repositories for all 8 microservices with lifecycle policies, scan-on-push, and configurable tag immutability (MUTABLE dev, IMMUTABLE prod). Images stored at `{account}.dkr.ecr.eu-central-1.amazonaws.com/petclinic-{env}/{service}:{tag}`. Cost: ~$1/month beyond 500 MB free tier.
+**Description:** Create ECR private repositories for all 8 microservices with lifecycle policies, scan-on-push, and configurable tag immutability (MUTABLE dev, IMMUTABLE prod). Images stored at `{account}.dkr.ecr.ap-south-1.amazonaws.com/petclinic-{env}/{service}:{tag}`. Cost: ~$1/month beyond 500 MB free tier.
 **Blocked by:** E-1
 **Blocks:** E-10, E-17
 
@@ -706,7 +705,7 @@ Call the ECR module from dev environment with all 8 service names and deploy. EC
 **Acceptance Criteria:**
 - [ ] ECR module called with service_names: [config-server, discovery-server, api-gateway, customers-service, visits-service, vets-service, genai-service, admin-server]
 - [ ] `terraform apply` succeeds
-- [ ] 8 ECR repositories visible in eu-central-1 under `petclinic-dev/` prefix
+- [ ] 8 ECR repositories visible in ap-south-1 under `petclinic-dev/` prefix
 - [ ] Repository URIs accessible and correct
 - [ ] Scan-on-push enabled on all repos
 
@@ -722,15 +721,15 @@ Call the ECR module from dev environment with all 8 service names and deploy. EC
 **Blocked by:** PETPLAT-20
 
 **Description:**
-Create `scripts/ecr-login.sh` that authenticates Docker to the ECR private registry in eu-central-1.
+Create `scripts/ecr-login.sh` that authenticates Docker to the ECR private registry in ap-south-1.
 
 **Technical Spec:** [ECR Container Registry](./technical-spec.md#ecr-container-registry)
 
 **Acceptance Criteria:**
 - [ ] Script at `scripts/ecr-login.sh`
-- [ ] Uses `aws ecr get-login-password --region eu-central-1` and pipes to `docker login {account}.dkr.ecr.eu-central-1.amazonaws.com`
+- [ ] Uses `aws ecr get-login-password --region ap-south-1` and pipes to `docker login {account}.dkr.ecr.ap-south-1.amazonaws.com`
 - [ ] Works on macOS and Linux
-- [ ] Accepts optional `--region` parameter (defaults to eu-central-1)
+- [ ] Accepts optional `--region` parameter (defaults to ap-south-1)
 
 ---
 
@@ -1202,7 +1201,7 @@ Config Server must deploy first. All other services depend on it.
 - [ ] Readiness probe: /actuator/health, port 8888
 - [ ] Liveness probe: /actuator/health, port 8888
 - [ ] Resource requests: cpu=100m, memory=128Mi; limits: cpu=500m, memory=512Mi
-- [ ] Image: `{account}.dkr.ecr.eu-central-1.amazonaws.com/petclinic-{env}/config-server:<TAG>` (placeholder)
+- [ ] Image: `{account}.dkr.ecr.ap-south-1.amazonaws.com/petclinic-{env}/config-server:<TAG>` (placeholder)
 - [ ] ServiceAccount created
 - [ ] `kubectl apply --dry-run=client` passes
 
@@ -1472,7 +1471,7 @@ Create the GitHub Actions workflow that builds Docker images for changed service
 - [ ] Build image for each changed service — `--platform linux/arm64`
 - [ ] Trivy scan each image before push — fail on CRITICAL vulnerabilities
 - [ ] Tag with 7-character commit SHA — `github.sha[:7]`
-- [ ] Push to ECR: `{account}.dkr.ecr.eu-central-1.amazonaws.com/petclinic-dev/{service}:{sha}`
+- [ ] Push to ECR: `{account}.dkr.ecr.ap-south-1.amazonaws.com/petclinic-dev/{service}:{sha}`
 - [ ] After all changed services are pushed, fire `repository_dispatch` event type `app-image-built` to the platform repo using `PLATFORM_REPO_TOKEN` secret — payload includes SHA and list of changed services only
 - [ ] Pipeline succeeds end-to-end
 
@@ -2248,9 +2247,9 @@ Perform the first-time manual build of all 8 Docker images from the application 
 **Acceptance Criteria:**
 - [ ] Application repo cloned locally
 - [ ] `./mvnw clean install -P buildDocker` succeeds (all 8 images built)
-- [ ] ECR login successful: `aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin {account}.dkr.ecr.eu-central-1.amazonaws.com`
+- [ ] ECR login successful: `aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin {account}.dkr.ecr.ap-south-1.amazonaws.com`
 - [ ] All 8 images tagged with initial version (e.g., `v1.0.0` or commit SHA)
-- [ ] All 8 images pushed to ECR (`{account}.dkr.ecr.eu-central-1.amazonaws.com/petclinic-dev/{service}:{tag}`)
+- [ ] All 8 images pushed to ECR (`{account}.dkr.ecr.ap-south-1.amazonaws.com/petclinic-dev/{service}:{tag}`)
 - [ ] Verified: images visible in AWS ECR Console
 - [ ] Documented: the build and push commands for reference
 
@@ -2429,7 +2428,7 @@ Document Terraform state management procedures for common operational scenarios.
 - [ ] How to: remove a resource from state without destroying (`terraform state rm`)
 - [ ] How to: move a resource between modules (`terraform state mv`)
 - [ ] How to: recover from state corruption (S3 versioning rollback)
-- [ ] How to: handle state lock stuck (DynamoDB lock force-unlock)
+- [ ] How to: handle state lock stuck (`terraform force-unlock <LOCK_ID>`; lock lives in `{state-key}.tflock` in S3)
 - [ ] Warning: when NOT to use these commands
 
 ---
@@ -2544,7 +2543,12 @@ Create a consolidated compliance checklist documenting all security controls, en
 - [ ] K8s RBAC configuration summary
 - [ ] Audit logging: CloudTrail status, EKS audit logs, log retention
 - [ ] Data classification: what is PII, where stored, how protected
-- [ ] GDPR considerations: eu-central-1 data residency noted
+- [ ] Indian data protection considerations (DPDP Act 2023 + DPDP Rules, CERT-In Directions 2022):
+  - [ ] Data residency: all personal data (owner names, addresses, phone numbers) stored in ap-south-1 (Mumbai); any cross-border transfer documented
+  - [ ] Personal data inventory mapped to DPDP roles (Data Fiduciary / Data Processor) with lawful purpose for each field
+  - [ ] Breach response: notify the Data Protection Board of India and affected Data Principals; report cyber incidents to CERT-In within 6 hours
+  - [ ] Log retention: documented as a **known gap**. CERT-In requires system and audit logs to be kept for at least 180 days within India; this learning project keeps them for 7 days (dev) / 30 days (prod) to control cost (see [Technical Spec](./technical-spec.md)). A production deployment must raise retention to >= 180 days
+  - [ ] Retention and erasure: personal data deleted once its purpose is served or consent is withdrawn
 - [ ] Vulnerability scanning schedule (Checkov, Trivy in CI, ECR scan-on-push)
 - [ ] Remediation SLAs: Critical (24h), High (72h), Medium (1 week), Low (next sprint)
 
@@ -2728,7 +2732,7 @@ Create per-service values files at `helm-values/{service}.yaml` for all 8 Petcli
 
 **Acceptance Criteria:**
 - [ ] Values files created for all 8 services: `helm-values/config-server.yaml`, `helm-values/discovery-server.yaml`, `helm-values/api-gateway.yaml`, `helm-values/customers-service.yaml`, `helm-values/visits-service.yaml`, `helm-values/vets-service.yaml`, `helm-values/genai-service.yaml`, `helm-values/admin-server.yaml`
-- [ ] Each file specifies: image repo (`{account}.dkr.ecr.eu-central-1.amazonaws.com/petclinic-{env}/{service}`), image tag, container port, service port
+- [ ] Each file specifies: image repo (`{account}.dkr.ecr.ap-south-1.amazonaws.com/petclinic-{env}/{service}`), image tag, container port, service port
 - [ ] Database services (customers, visits, vets): Spring profiles `docker,mysql`, datasource URL, secret references for RDS credentials
 - [ ] GenAI service: secret reference for OpenAI API key from Secrets Manager (via ESO)
 - [ ] Config Server: GIT_REPO URL for config

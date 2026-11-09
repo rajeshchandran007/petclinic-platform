@@ -1,0 +1,4 @@
+# Copy to backend.hcl (gitignored) or generate it with scripts/bootstrap-state.sh.
+# Usage: terraform init -backend-config=backend.hcl
+bucket = "petclinic-terraform-state-123456789012"
+region = "ap-south-1"

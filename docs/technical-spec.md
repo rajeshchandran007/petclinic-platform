@@ -38,12 +38,12 @@
 
 | Parameter | Value |
 |-----------|-------|
-| AWS Region | `eu-central-1` |
-| Availability Zones | `eu-central-1a`, `eu-central-1b` |
+| AWS Region | `ap-south-1` |
+| Availability Zones | `ap-south-1a`, `ap-south-1b` |
 | Project Name | `petclinic` |
 | Naming Convention | `petclinic-{env}-{resource}` (e.g., `petclinic-dev-vpc`, `petclinic-prod-eks`) |
 | Environments | `dev`, `prod` |
-| Terraform Version | `>= 1.6.0` |
+| Terraform Version | `>= 1.10.0` (environment roots; required for native S3 locking) |
 | AWS Provider Version | `~> 5.0` |
 | Spring Boot Version | `4.0.1` (parent POM: `org.springframework.boot:spring-boot-starter-parent`) |
 | Spring Cloud Version | `2025.1.0` (Oakwood) |
@@ -72,13 +72,15 @@ These tags are applied via `default_tags` in the AWS provider configuration. Mod
 
 | Parameter | Value |
 |-----------|-------|
-| Backend Type | S3 with DynamoDB locking |
+| Backend Type | S3 with native S3 locking (`use_lockfile = true`) |
 | S3 Bucket | `petclinic-terraform-state-{account-id}` |
 | S3 Encryption | AES256 (SSE-S3) |
 | S3 Versioning | Enabled |
 | S3 Public Access | All blocked (4 settings) |
-| DynamoDB Table | `petclinic-terraform-locks` |
-| DynamoDB Partition Key | `LockID` (String) |
+| Lock File | `{state-key}.tflock` (created next to the state object in the same bucket) |
+| Minimum Terraform | >= 1.10 (native S3 locking; DynamoDB locking is deprecated) |
+
+No DynamoDB table is used. The IAM principal running Terraform needs `s3:GetObject`, `s3:PutObject`, and `s3:DeleteObject` on both `petclinic/{env}/terraform.tfstate` and `petclinic/{env}/terraform.tfstate.tflock`.
 
 ### Per-Environment State Keys
 
@@ -89,9 +91,9 @@ These tags are applied via `default_tags` in the AWS provider configuration. Mod
 
 ### Bootstrap Script
 
-`scripts/bootstrap-state.sh` provisions the S3 bucket and DynamoDB table. It is:
+`scripts/bootstrap-state.sh` provisions the S3 state bucket (locking needs no extra resources). It is:
 - Idempotent (safe to run multiple times)
-- Accepts `--region` parameter (default: `eu-central-1`)
+- Accepts `--region` parameter (default: `ap-south-1`)
 - Run once before `terraform init`
 
 ---
@@ -248,7 +250,7 @@ Add-on versions pinned (not `latest`). Resolve conflicts strategy: `OVERWRITE` f
 |-----------|-----|------|
 | Registry Type | ECR Private | ECR Private |
 | Terraform Resource | `aws_ecr_repository` | `aws_ecr_repository` |
-| Region | `eu-central-1` (same as infra) | `eu-central-1` |
+| Region | `ap-south-1` (same as infra) | `ap-south-1` |
 | Tag Mutability | `MUTABLE` | `IMMUTABLE` |
 | Image Scanning | Scan-on-push enabled | Scan-on-push enabled |
 | Encryption | AES256 (default) | AES256 (default) |
@@ -257,23 +259,23 @@ Add-on versions pinned (not `latest`). Resolve conflicts strategy: `OVERWRITE` f
 
 | Repository Name | Service | Image URI Pattern |
 |-----------------|---------|-------------------|
-| `petclinic-{env}/config-server` | Config Server | `{account}.dkr.ecr.eu-central-1.amazonaws.com/petclinic-{env}/config-server:{tag}` |
-| `petclinic-{env}/discovery-server` | Discovery Server | `{account}.dkr.ecr.eu-central-1.amazonaws.com/petclinic-{env}/discovery-server:{tag}` |
-| `petclinic-{env}/api-gateway` | API Gateway | `{account}.dkr.ecr.eu-central-1.amazonaws.com/petclinic-{env}/api-gateway:{tag}` |
-| `petclinic-{env}/customers-service` | Customers Service | `{account}.dkr.ecr.eu-central-1.amazonaws.com/petclinic-{env}/customers-service:{tag}` |
-| `petclinic-{env}/visits-service` | Visits Service | `{account}.dkr.ecr.eu-central-1.amazonaws.com/petclinic-{env}/visits-service:{tag}` |
-| `petclinic-{env}/vets-service` | Vets Service | `{account}.dkr.ecr.eu-central-1.amazonaws.com/petclinic-{env}/vets-service:{tag}` |
-| `petclinic-{env}/genai-service` | GenAI Service | `{account}.dkr.ecr.eu-central-1.amazonaws.com/petclinic-{env}/genai-service:{tag}` |
-| `petclinic-{env}/admin-server` | Admin Server | `{account}.dkr.ecr.eu-central-1.amazonaws.com/petclinic-{env}/admin-server:{tag}` |
+| `petclinic-{env}/config-server` | Config Server | `{account}.dkr.ecr.ap-south-1.amazonaws.com/petclinic-{env}/config-server:{tag}` |
+| `petclinic-{env}/discovery-server` | Discovery Server | `{account}.dkr.ecr.ap-south-1.amazonaws.com/petclinic-{env}/discovery-server:{tag}` |
+| `petclinic-{env}/api-gateway` | API Gateway | `{account}.dkr.ecr.ap-south-1.amazonaws.com/petclinic-{env}/api-gateway:{tag}` |
+| `petclinic-{env}/customers-service` | Customers Service | `{account}.dkr.ecr.ap-south-1.amazonaws.com/petclinic-{env}/customers-service:{tag}` |
+| `petclinic-{env}/visits-service` | Visits Service | `{account}.dkr.ecr.ap-south-1.amazonaws.com/petclinic-{env}/visits-service:{tag}` |
+| `petclinic-{env}/vets-service` | Vets Service | `{account}.dkr.ecr.ap-south-1.amazonaws.com/petclinic-{env}/vets-service:{tag}` |
+| `petclinic-{env}/genai-service` | GenAI Service | `{account}.dkr.ecr.ap-south-1.amazonaws.com/petclinic-{env}/genai-service:{tag}` |
+| `petclinic-{env}/admin-server` | Admin Server | `{account}.dkr.ecr.ap-south-1.amazonaws.com/petclinic-{env}/admin-server:{tag}` |
 
 ### ECR Authentication
 
 ```bash
 # Login (same region as infra)
-aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin {account}.dkr.ecr.eu-central-1.amazonaws.com
+aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin {account}.dkr.ecr.ap-south-1.amazonaws.com
 
 # Push
-docker push {account}.dkr.ecr.eu-central-1.amazonaws.com/petclinic-{env}/{service}:{tag}
+docker push {account}.dkr.ecr.ap-south-1.amazonaws.com/petclinic-{env}/{service}:{tag}
 ```
 
 ### Image Tag Strategy
@@ -382,7 +384,7 @@ All three database services use a shared `petclinic` database. Each service's sc
 jdbc:mysql://{rds-endpoint}:3306/petclinic
 ```
 
-Example: `jdbc:mysql://petclinic-dev-mysql.abc123.eu-central-1.rds.amazonaws.com:3306/petclinic`
+Example: `jdbc:mysql://petclinic-dev-mysql.abc123.ap-south-1.rds.amazonaws.com:3306/petclinic`
 
 ---
 
@@ -424,7 +426,7 @@ spec:
   provider:
     aws:
       service: SecretsManager
-      region: eu-central-1
+      region: ap-south-1
       auth:
         jwt:
           serviceAccountRef:
@@ -468,7 +470,7 @@ spec:
 |-----------|-------|
 | Domain | `*.{domain}` (wildcard) |
 | Validation Method | DNS (Route 53) |
-| Region | `eu-central-1` (same as ALB) |
+| Region | `ap-south-1` (same as ALB) |
 
 ### Route 53
 
@@ -781,13 +783,13 @@ GitHub Actions handles **CI only** (build, test, push images). **ArgoCD handles 
 | Audience | `sts.amazonaws.com` |
 | Subject Filter | `repo:{org}/{repo}:ref:refs/heads/main` |
 | IAM Role | `petclinic-github-actions-role` |
-| Permissions | ECR push only (`ecr:GetAuthorizationToken`, `ecr:BatchCheckLayerAvailability`, `ecr:PutImage`, layer upload actions) — no S3, no DynamoDB (CI workflows do not run Terraform) |
+| Permissions | ECR push only (`ecr:GetAuthorizationToken`, `ecr:BatchCheckLayerAvailability`, `ecr:PutImage`, layer upload actions) — no S3 state access (CI workflows do not run Terraform) |
 
 ### GitHub Secrets
 
 | Secret Name | Purpose |
 |-------------|---------|
-| `AWS_REGION` | `eu-central-1` |
+| `AWS_REGION` | `ap-south-1` |
 | `AWS_ROLE_ARN` | OIDC role ARN for `aws-actions/configure-aws-credentials` |
 | `AWS_ACCOUNT_ID` | AWS account ID (for ECR registry URL) |
 
@@ -797,7 +799,7 @@ GitHub Actions handles **CI only** (build, test, push images). **ArgoCD handles 
 2. Set up JDK 17
 3. Set up Docker Buildx + QEMU (for ARM64 cross-compilation)
 4. Configure AWS credentials (OIDC)
-5. Login to ECR: `aws ecr get-login-password --region eu-central-1`
+5. Login to ECR: `aws ecr get-login-password --region ap-south-1`
 6. Maven build: `./mvnw clean install -P buildDocker -Dcontainer.platform="linux/arm64"`
 7. Trivy scan: fail on CRITICAL CVEs
 8. Tag images with commit SHA (short, 7 chars): `${GITHUB_SHA::7}`
@@ -913,6 +915,8 @@ git push
 | Storage | PersistentVolume (EBS, 10Gi) | PersistentVolume (EBS, 50Gi) |
 | Log Retention | 7 days | 30 days |
 
+> **Known compliance gap:** CERT-In Directions (2022) require system logs to be retained for at least 180 days within India. These retention values are intentionally lower to keep this learning project's cost down; it does not meet that requirement. A production deployment must raise retention to >= 180 days (and size Loki storage accordingly). Tracked in PETPLAT-100's compliance checklist.
+
 Loki receives logs from FluentBit and exposes them as a Grafana datasource. Log-based alert rules are defined as Loki alerting rules and routed through Alertmanager — same alert pipeline as Prometheus.
 
 #### Loki Alert Rules
@@ -939,7 +943,7 @@ Five IAM Roles for Service Accounts, each with OIDC trust policy scoped to a spe
 
 | Role Name Pattern | K8s ServiceAccount | Namespace | IAM Policy | Used By |
 |-------------------|--------------------|-----------|------------|---------|
-| `petclinic-{env}-eso-role` | `external-secrets-sa` | `external-secrets` | `secretsmanager:GetSecretValue`, `secretsmanager:DescribeSecret` on `arn:aws:secretsmanager:eu-central-1:{account}:secret:petclinic/*` | ESO |
+| `petclinic-{env}-eso-role` | `external-secrets-sa` | `external-secrets` | `secretsmanager:GetSecretValue`, `secretsmanager:DescribeSecret` on `arn:aws:secretsmanager:ap-south-1:{account}:secret:petclinic/*` | ESO |
 | `petclinic-{env}-lb-controller-role` | `aws-load-balancer-controller` | `kube-system` | AWS Load Balancer Controller IAM policy (managed) | ALB Controller |
 | `petclinic-{env}-ebs-csi-role` | `ebs-csi-controller-sa` | `kube-system` | `AmazonEBSCSIDriverPolicy` (AWS managed) | EBS CSI Driver |
 | `petclinic-{env}-argocd-role` | `argocd-server` | `argocd` | Minimal: only needed if ArgoCD accesses AWS resources directly (optional) | ArgoCD |
@@ -1014,7 +1018,7 @@ This is a learning project. Instance choices maximize AWS free tier eligibility.
 | EC2 Nodes (2x t4g.small) | $0 | $0 | Graviton free trial (750 hrs/mo until Dec 2026) |
 | RDS MySQL (db.t4g.micro) | $0 | $0 | RDS free tier (750 hrs/mo, 12 months) |
 | ALB | $0 | $0 | Free tier (750 hrs/mo, 12 months) |
-| S3 + DynamoDB (state) | $1 | $1 | Mostly free tier |
+| S3 (state + lock file) | $1 | $1 | Mostly free tier |
 | ECR Storage | ~$1 | ~$1 | 500 MB free, then $0.10/GB/month |
 | EBS (PVs — Prometheus, Grafana, Loki) | $2 | $2 | 30 GB gp2 free (12 months) |
 | Route 53 | $1 | $1 | $0.50/zone + queries |
@@ -1279,7 +1283,7 @@ helm/
 ```yaml
 replicaCount: 1
 image:
-  repository: ""   # Set per-service: {account}.dkr.ecr.eu-central-1.amazonaws.com/petclinic-{env}/{service}
+  repository: ""   # Set per-service: {account}.dkr.ecr.ap-south-1.amazonaws.com/petclinic-{env}/{service}
   tag: "latest"    # Overridden by CI/CD
   pullPolicy: IfNotPresent
 

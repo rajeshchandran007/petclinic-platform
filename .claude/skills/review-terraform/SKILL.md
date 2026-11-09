@@ -45,7 +45,7 @@ Review Terraform code against the project's security requirements, naming conven
    **Best Practices:**
    - No deprecated resources or arguments
    - Provider version constraints in versions.tf
-   - Backend config uses S3 + DynamoDB locking
+   - Backend config uses S3 with native locking (`use_lockfile = true`), not the deprecated `dynamodb_table`
 
 3. Present findings in a structured format:
    ```
