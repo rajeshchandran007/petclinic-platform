@@ -108,6 +108,12 @@ variable "grant_deployer_cluster_admin" {
   default     = true
 }
 
+variable "grant_root_cluster_admin" {
+  description = "Create a cluster-admin access entry for the AWS account root user (arn:aws:iam::<account>:root). Opt-in only: lets the root user see cluster resources in the EKS console. Keep false in prod."
+  type        = bool
+  default     = false
+}
+
 variable "cluster_admin_principal_arns" {
   description = "Additional IAM user/role ARNs granted AmazonEKSClusterAdminPolicy through EKS access entries."
   type        = list(string)

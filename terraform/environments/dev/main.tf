@@ -47,6 +47,8 @@ module "eks" {
 
   cluster_endpoint_public_access_cidrs = var.eks_public_access_cidrs
   cluster_admin_principal_arns         = var.eks_cluster_admin_principal_arns
+  # Dev only: lets the account root user view cluster resources in the EKS console.
+  grant_root_cluster_admin = true
 
   # technical-spec.md#managed-node-group
   node_instance_types = ["t4g.small"]
