@@ -46,7 +46,6 @@ Read the following stories from docs/jira-backlog.md:
 - PetclinicPlatform20: Wire ECR module into dev environment and deploy
 - PetclinicPlatform21: Create ECR login helper script
 - PetclinicPlatform85: Build and push Docker images to ECR (initial)
-
 Read the technical spec at docs/technical-spec.md, specifically:
 - ECR Container Registry section
 - Docker Build section
@@ -57,3 +56,45 @@ The build-push script must use docker buildx with --platform linux/arm64 for Gra
 After you are done, run terraform validate in both dev and prod.
 Then use the terraform-reviewer agent to review the module for security and best practices.
 Fix any issues the reviewer finds, then validate again.
+
+
+## Prompt-4
+Read the following stories from docs/jira-backlog.md:
+- PetclinicPlatform22: Create RDS module
+- PetclinicPlatform23: Create database credentials in Secrets Manager
+- PetclinicPlatform24: Create database initialization strategy
+- PetclinicPlatform25: Wire RDS module into dev environment
+- PetclinicPlatform26: Deploy and verify dev RDS
+- PetclinicPlatform27: Wire RDS module into prod environment
+Read the technical spec at docs/technical-spec.md, specifically:
+- RDS Database section
+- Secrets Management section
+- Security Groups section (RDS security group)
+- Terraform Modules section (RDS module)
+
+Build everything these stories require. Follow the acceptance criteria exactly.
+After you are done, run terraform validate in both dev and prod.
+Then use the terraform-reviewer agent to review the module for security and best practices.
+Fix any issues the reviewer finds, then validate again.
+
+
+## Prompt-5
+Read the following stories from docs/jira-backlog.md:
+- PetclinicPlatform28: Create DNS module - Route 53 hosted zone
+- PetclinicPlatform29: Install AWS Load Balancer Controller on EKS
+- PetclinicPlatform30: Create Ingress manifest for API Gateway
+- PetclinicPlatform31: Create DNS record pointing to ALB
+- PetclinicPlatform32: Wire DNS module into dev environment
+Read the technical spec at docs/technical-spec.md, specifically:
+- DNS and Ingress section
+- Security Groups section (ALB security group)
+- IRSA Roles section (LB controller role)
+- Terraform Modules section (DNS module)
+
+Build everything these stories require. Follow the acceptance criteria exactly.
+This section produces both Terraform resources AND Kubernetes resources - make sure you generate both.
+The AWS Load Balancer Controller should be installed via Helm chart (aws-load-balancer-controller from eks.amazonaws.com/charts). Generate a shell script at scripts/install-lb-controller.sh that handles the CRDs, Helm repo add, and helm install with the correct service account and IRSA role ARN. Make sure the script is executable (chmod +x).
+After you are done, run terraform validate in both dev and prod.
+Then use the terraform-reviewer agent to review the Terraform module for security and best practices.
+Then use the k8s-validator agent to validate the Kubernetes manifests against project standards.
+Fix any issues either reviewer finds, then validate again.

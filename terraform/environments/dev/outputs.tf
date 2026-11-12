@@ -95,3 +95,90 @@ output "kubeconfig_command" {
   description = "Run this to configure kubectl for the cluster."
   value       = module.eks.kubeconfig_command
 }
+
+################################################################################
+# ECR
+################################################################################
+
+output "ecr_repository_urls" {
+  description = "Map of service name => ECR repository URL."
+  value       = module.ecr.repository_urls
+}
+
+output "ecr_repository_arns" {
+  description = "Map of service name => ECR repository ARN."
+  value       = module.ecr.repository_arns
+}
+
+output "ecr_registry_url" {
+  description = "ECR registry hostname for docker login."
+  value       = module.ecr.registry_url
+}
+
+################################################################################
+# RDS
+################################################################################
+
+output "rds_endpoint" {
+  description = "RDS MySQL endpoint hostname."
+  value       = module.rds.endpoint
+}
+
+output "rds_port" {
+  description = "RDS MySQL port."
+  value       = module.rds.port
+}
+
+output "rds_db_instance_id" {
+  description = "RDS instance identifier."
+  value       = module.rds.db_instance_id
+}
+
+output "rds_jdbc_url" {
+  description = "JDBC URL for SPRING_DATASOURCE_URL."
+  value       = module.rds.jdbc_url
+}
+
+output "rds_secret_arn" {
+  description = "Secrets Manager ARN of petclinic/{env}/rds-credentials (for External Secrets Operator)."
+  value       = module.rds.secret_arn
+}
+
+output "rds_secret_name" {
+  description = "Secrets Manager name of the RDS credentials secret."
+  value       = module.rds.secret_name
+}
+
+################################################################################
+# DNS & Ingress
+################################################################################
+
+output "dns_zone_id" {
+  description = "Route 53 hosted zone ID."
+  value       = module.dns.zone_id
+}
+
+output "dns_zone_name_servers" {
+  description = "Name servers to set at your domain registrar."
+  value       = module.dns.zone_name_servers
+}
+
+output "acm_certificate_arn" {
+  description = "Wildcard ACM certificate ARN for the Ingress."
+  value       = module.dns.certificate_arn
+}
+
+output "app_fqdn" {
+  description = "Application hostname."
+  value       = module.dns.app_fqdn
+}
+
+output "app_url" {
+  description = "Application URL (live once the alias record exists)."
+  value       = "https://${module.dns.app_fqdn}"
+}
+
+output "lb_controller_role_arn" {
+  description = "IRSA role ARN for kube-system/aws-load-balancer-controller."
+  value       = module.eks.lb_controller_role_arn
+}

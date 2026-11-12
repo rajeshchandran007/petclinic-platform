@@ -65,3 +65,9 @@ variable "eks_cluster_admin_principal_arns" {
   type        = list(string)
   default     = []
 }
+
+variable "rds_engine_version" {
+  description = "RDS MySQL engine version (\"8.0\" per spec; note 8.0 is on paid RDS Extended Support since 2026-08-01 — \"8.4\" avoids that charge)."
+  type        = string
+  default     = "8.0"
+}

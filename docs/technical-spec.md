@@ -306,9 +306,21 @@ docker push {account}.dkr.ecr.ap-south-1.amazonaws.com/petclinic-{env}/{service}
   "rules": [
     {
       "rulePriority": 1,
-      "description": "Keep last 10 images",
+      "description": "Expire untagged images older than 7 days",
       "selection": {
-        "tagStatus": "any",
+        "tagStatus": "untagged",
+        "countType": "sinceImagePushed",
+        "countUnit": "days",
+        "countNumber": 7
+      },
+      "action": { "type": "expire" }
+    },
+    {
+      "rulePriority": 2,
+      "description": "Keep last 10 tagged images",
+      "selection": {
+        "tagStatus": "tagged",
+        "tagPatternList": ["*"],
         "countType": "imageCountMoreThan",
         "countNumber": 10
       },
@@ -497,7 +509,7 @@ spec:
 
 | Parameter | Value |
 |-----------|-------|
-| Installation | Helm chart (`aws-load-balancer-controller` from `eks.amazonaws.com/charts`) |
+| Installation | Helm chart `eks/aws-load-balancer-controller` 3.6.2 (repo `https://aws.github.io/eks-charts`) via `scripts/install-lb-controller.sh` |
 | Namespace | `kube-system` |
 | Auth | IRSA (see [IRSA Roles](#irsa-roles)) |
 | IngressClass | `alb` |
@@ -991,7 +1003,7 @@ Five IAM Roles for Service Accounts, each with OIDC trust policy scoped to a spe
 
 | Resource | Encryption at Rest | Encryption in Transit | Key |
 |----------|-------------------|----------------------|-----|
-| RDS MySQL | KMS (AWS default key) | SSL available (not enforced by default) | AWS managed |
+| RDS MySQL | KMS (AWS default key) | TLS enforced (`require_secure_transport=1` in parameter group) | AWS managed |
 | S3 (state bucket) | SSE-S3 (AES256) | HTTPS enforced | AWS managed |
 | EBS Volumes | Default encryption enabled | N/A | AWS managed |
 | ECR Images | AES256 | HTTPS | AWS managed |

@@ -14,3 +14,13 @@ eks_cluster_version = "1.35"
 eks_public_access_cidrs = ["203.0.113.10/32"]
 # Extra cluster admins (IAM users/roles, not root). The Terraform caller is added automatically.
 eks_cluster_admin_principal_arns = []
+
+# DNS (technical-spec.md#dns-and-ingress) — a domain you own; delegate the
+# output dns_zone_name_servers at your registrar before the cert can validate.
+domain_name = "example.com"
+# true (default) blocks apply until ACM issues the cert, which needs the NS
+# delegation to be live. If the zone is new: apply once with false, set the NS
+# records at your registrar, then apply again with true.
+wait_for_certificate_validation = true
+# After the Ingress has created petclinic-dev-alb (PETPLAT-31):
+create_alb_dns_record = false

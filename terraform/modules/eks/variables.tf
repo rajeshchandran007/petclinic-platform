@@ -242,3 +242,30 @@ variable "addon_versions" {
     error_message = "addon_versions must be exact versions like v1.22.4-eksbuild.10 (no \"latest\")."
   }
 }
+
+################################################################################
+# AWS Load Balancer Controller IRSA (PETPLAT-29)
+################################################################################
+
+variable "enable_lb_controller_irsa" {
+  description = "Create the IRSA role + IAM policy for the AWS Load Balancer Controller (kube-system/aws-load-balancer-controller)."
+  type        = bool
+  default     = true
+}
+
+variable "lb_controller_version" {
+  description = "AWS Load Balancer Controller app version whose upstream IAM policy is vendored in policies/. Must match the Helm chart installed by scripts/install-lb-controller.sh."
+  type        = string
+  default     = "v3.6.2"
+
+  validation {
+    condition     = fileexists("${path.module}/policies/aws-load-balancer-controller-${var.lb_controller_version}.json")
+    error_message = "No vendored IAM policy for this version. Download docs/install/iam_policy.json from the matching kubernetes-sigs/aws-load-balancer-controller tag into policies/."
+  }
+}
+
+variable "lb_controller_protected_security_group_ids" {
+  description = "Extra Terraform-managed security groups (e.g. RDS, ALB) the Load Balancer Controller is explicitly denied from modifying. The cluster and node SGs are always protected."
+  type        = list(string)
+  default     = []
+}

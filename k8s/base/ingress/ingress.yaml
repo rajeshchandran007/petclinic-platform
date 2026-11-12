@@ -1,0 +1,60 @@
+# Ingress for the API Gateway (PETPLAT-30)
+# Spec: docs/technical-spec.md#ingress-resource-annotations, #ingress-routing
+#
+# Template: ${...} placeholders are filled from Terraform outputs by
+#   ./scripts/render-ingress.sh {env} | kubectl apply -f -
+#
+#   ${ENVIRONMENT}            dev | prod
+#   ${NAMESPACE}              petclinic-{env}
+#   ${ACM_CERTIFICATE_ARN}    terraform output -raw acm_certificate_arn
+#   ${ALB_SECURITY_GROUP_ID}  terraform output -raw alb_sg_id
+#
+# Notes vs. the spec annotation list:
+# - The class is set with spec.ingressClassName: alb. The deprecated
+#   kubernetes.io/ingress.class annotation is omitted: the API server rejects an
+#   Ingress that sets both.
+# - security-groups pins the Terraform-managed ALB SG (80/443 from internet,
+#   egress only to the node SG), so the controller does not create its own SGs.
+# - load-balancer-name pins the ALB name so Terraform can create the Route 53
+#   alias record (terraform/modules/dns, var.alb_name = petclinic-{env}-alb).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-gateway
+  namespace: ${NAMESPACE}
+  labels:
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/part-of: petclinic
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/managed-by: kubectl
+  annotations:
+    alb.ingress.kubernetes.io/load-balancer-name: petclinic-${ENVIRONMENT}-alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/security-groups: ${ALB_SECURITY_GROUP_ID}
+    alb.ingress.kubernetes.io/manage-backend-security-group-rules: "false"
+    # TLS
+    alb.ingress.kubernetes.io/certificate-arn: ${ACM_CERTIFICATE_ARN}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    # Health checks
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-path: /actuator/health
+    alb.ingress.kubernetes.io/healthcheck-port: "8080"
+    alb.ingress.kubernetes.io/success-codes: "200"
+    # Hardening + tagging
+    alb.ingress.kubernetes.io/load-balancer-attributes: routing.http.drop_invalid_header_fields.enabled=true
+    alb.ingress.kubernetes.io/tags: Project=petclinic,Environment=${ENVIRONMENT},ManagedBy=aws-load-balancer-controller
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080

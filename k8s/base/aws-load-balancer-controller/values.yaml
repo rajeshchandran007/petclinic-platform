@@ -1,0 +1,64 @@
+# Helm values for the AWS Load Balancer Controller (PETPLAT-29)
+# Chart: eks/aws-load-balancer-controller (https://aws.github.io/eks-charts)
+# Installed by scripts/install-lb-controller.sh, which also sets the
+# environment-specific values: clusterName, vpcId, region, replicaCount and the
+# IRSA role ARN on the service account.
+#
+# Spec: docs/technical-spec.md#aws-load-balancer-controller
+
+# Service account bound to the IRSA role petclinic-{env}-lb-controller-role.
+# The name must match the role's trust policy (terraform/modules/eks/lb_controller.tf).
+serviceAccount:
+  create: true
+  name: aws-load-balancer-controller
+  # annotations:
+  #   eks.amazonaws.com/role-arn: set by the install script
+
+# IngressClass "alb" (technical-spec.md#aws-load-balancer-controller).
+createIngressClassResource: true
+ingressClass: alb
+
+# Only Ingress/ALB is used. Do not mutate Service type=LoadBalancer objects.
+enableServiceMutatorWebhook: false
+
+# t4g.small nodes are small; keep the footprint bounded.
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+podDisruptionBudget:
+  maxUnavailable: 1
+
+# Hardened pod/container security (technical-spec.md#securitycontext-all-deployments).
+podSecurityContext:
+  fsGroup: 65534
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+# Spread replicas across nodes when replicaCount > 1.
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: aws-load-balancer-controller
+
+# app.kubernetes.io/component is intentionally NOT added here: the chart already
+# sets component=webhook on its webhook Service, and additionalLabels would emit a
+# duplicate key there (invalid YAML for strict parsers). Third-party chart
+# resources keep the chart's own name/instance/managed-by=Helm labels.
+additionalLabels:
+  app.kubernetes.io/part-of: petclinic

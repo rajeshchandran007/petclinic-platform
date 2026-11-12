@@ -86,3 +86,13 @@ output "ebs_csi_role_arn" {
   description = "IRSA role ARN used by the EBS CSI driver controller."
   value       = aws_iam_role.ebs_csi.arn
 }
+
+output "lb_controller_role_arn" {
+  description = "IRSA role ARN for the AWS Load Balancer Controller service account (null when disabled)."
+  value       = try(aws_iam_role.lb_controller[0].arn, null)
+}
+
+output "lb_controller_policy_arn" {
+  description = "IAM policy ARN attached to the AWS Load Balancer Controller role (null when disabled)."
+  value       = try(aws_iam_policy.lb_controller[0].arn, null)
+}
