@@ -1,0 +1,69 @@
+# Prod overlay (PETPLAT-46, PETPLAT-47)
+# Spec: docs/technical-spec.md#prod-overlay-k8soverlaysprod, #horizontal-pod-autoscaler-prod-only
+#
+# Render + apply (fills ${ECR_REGISTRY} and ${RDS_ENDPOINT} from Terraform):
+#   ./scripts/render-overlay.sh prod | kubectl apply -f -
+#
+# Image tag: an immutable commit SHA already validated in dev (prod ECR repos are
+# IMMUTABLE). Never "latest".
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: petclinic-prod
+resources:
+  - ../../base
+  - hpa.yaml
+labels:
+  - pairs:
+      environment: prod
+    includeSelectors: false
+    includeTemplates: true
+replicas:
+  - name: config-server
+    count: 2
+  - name: discovery-server
+    count: 2
+  - name: api-gateway
+    count: 2
+  - name: customers-service
+    count: 2
+  - name: visits-service
+    count: 2
+  - name: vets-service
+    count: 2
+  - name: genai-service
+    count: 1
+  - name: admin-server
+    count: 1
+images:
+  - name: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/petclinic-ENV/config-server
+    newName: ${ECR_REGISTRY}/petclinic-prod/config-server
+    newTag: "e8b747a"
+  - name: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/petclinic-ENV/discovery-server
+    newName: ${ECR_REGISTRY}/petclinic-prod/discovery-server
+    newTag: "e8b747a"
+  - name: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/petclinic-ENV/api-gateway
+    newName: ${ECR_REGISTRY}/petclinic-prod/api-gateway
+    newTag: "e8b747a"
+  - name: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/petclinic-ENV/customers-service
+    newName: ${ECR_REGISTRY}/petclinic-prod/customers-service
+    newTag: "e8b747a"
+  - name: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/petclinic-ENV/visits-service
+    newName: ${ECR_REGISTRY}/petclinic-prod/visits-service
+    newTag: "e8b747a"
+  - name: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/petclinic-ENV/vets-service
+    newName: ${ECR_REGISTRY}/petclinic-prod/vets-service
+    newTag: "e8b747a"
+  - name: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/petclinic-ENV/genai-service
+    newName: ${ECR_REGISTRY}/petclinic-prod/genai-service
+    newTag: "e8b747a"
+  - name: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/petclinic-ENV/admin-server
+    newName: ${ECR_REGISTRY}/petclinic-prod/admin-server
+    newTag: "e8b747a"
+patches:
+  # Spread replicas of each service across nodes so one node loss keeps the
+  # service up. Applies to every Deployment; matchLabelKeys scopes the skew
+  # calculation to the pods of the same ReplicaSet.
+  - path: patches/topology-spread.yaml
+    target:
+      kind: Deployment
+      labelSelector: app.kubernetes.io/part-of=petclinic

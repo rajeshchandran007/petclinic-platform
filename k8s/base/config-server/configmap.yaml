@@ -1,0 +1,18 @@
+# Non-secret configuration for config-server (PETPLAT-39)
+# Spec: docs/technical-spec.md#environment-variables-per-service
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-server-config
+  labels:
+    app.kubernetes.io/name: config-server
+    app.kubernetes.io/part-of: petclinic
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: server
+data:
+  # Git backend for configuration (technical-spec.md#config-server-details).
+  # GIT_REPO is only read when the "native" profile is active; the git URI below
+  # is what the default (git) backend uses.
+  GIT_REPO: https://github.com/spring-petclinic/spring-petclinic-microservices-config
+  SPRING_CLOUD_CONFIG_SERVER_GIT_URI: https://github.com/spring-petclinic/spring-petclinic-microservices-config
+  SPRING_CLOUD_CONFIG_SERVER_GIT_DEFAULT_LABEL: main

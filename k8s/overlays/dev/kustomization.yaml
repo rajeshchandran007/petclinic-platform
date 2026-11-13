@@ -1,0 +1,68 @@
+# Dev overlay (PETPLAT-45)
+# Spec: docs/technical-spec.md#dev-overlay-k8soverlaysdev
+#
+# Render + apply (fills ${ECR_REGISTRY} and ${RDS_ENDPOINT} from Terraform):
+#   ./scripts/render-overlay.sh dev | kubectl apply -f -
+#
+# Image tag: commit SHA of the app repo (spring-petclinic-microservices) used for
+# the initial push in PETPLAT-85 (build-push-images.sh --tag <sha>). CI updates
+# the tag afterwards. Never "latest".
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: petclinic-dev
+resources:
+  - ../../base
+labels:
+  - pairs:
+      environment: dev
+    includeSelectors: false
+    includeTemplates: true
+replicas:
+  - name: config-server
+    count: 1
+  - name: discovery-server
+    count: 1
+  - name: api-gateway
+    count: 1
+  - name: customers-service
+    count: 1
+  - name: visits-service
+    count: 1
+  - name: vets-service
+    count: 1
+  - name: genai-service
+    count: 1
+  - name: admin-server
+    count: 1
+images:
+  - name: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/petclinic-ENV/config-server
+    newName: ${ECR_REGISTRY}/petclinic-dev/config-server
+    newTag: "e8b747a"
+  - name: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/petclinic-ENV/discovery-server
+    newName: ${ECR_REGISTRY}/petclinic-dev/discovery-server
+    newTag: "e8b747a"
+  - name: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/petclinic-ENV/api-gateway
+    newName: ${ECR_REGISTRY}/petclinic-dev/api-gateway
+    newTag: "e8b747a"
+  - name: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/petclinic-ENV/customers-service
+    newName: ${ECR_REGISTRY}/petclinic-dev/customers-service
+    newTag: "e8b747a"
+  - name: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/petclinic-ENV/visits-service
+    newName: ${ECR_REGISTRY}/petclinic-dev/visits-service
+    newTag: "e8b747a"
+  - name: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/petclinic-ENV/vets-service
+    newName: ${ECR_REGISTRY}/petclinic-dev/vets-service
+    newTag: "e8b747a"
+  - name: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/petclinic-ENV/genai-service
+    newName: ${ECR_REGISTRY}/petclinic-dev/genai-service
+    newTag: "e8b747a"
+  - name: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/petclinic-ENV/admin-server
+    newName: ${ECR_REGISTRY}/petclinic-dev/admin-server
+    newTag: "e8b747a"
+patches:
+  # Dev runs with half the CPU request (fits more on 2x t4g.small); memory and
+  # limits stay at the project standard (128Mi / 512Mi).
+  - path: patches/resources-dev.yaml
+    target:
+      kind: Deployment
+      labelSelector: app.kubernetes.io/part-of=petclinic

@@ -1,0 +1,13 @@
+# Non-secret configuration for admin-server (PETPLAT-44)
+# Spec: docs/technical-spec.md#environment-variables-per-service
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: admin-server-config
+  labels:
+    app.kubernetes.io/name: admin-server
+    app.kubernetes.io/part-of: petclinic
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: admin
+data:
+  CONFIG_SERVER_URL: http://config-server:8888

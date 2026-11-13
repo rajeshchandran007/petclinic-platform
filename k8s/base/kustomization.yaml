@@ -1,0 +1,14 @@
+# All 8 Petclinic services (PETPLAT-39..44). Consumed by k8s/overlays/{dev,prod}.
+# Not included: namespaces.yaml (cluster-scoped), external-secrets/ and ingress/
+# (rendered by their own scripts), aws-load-balancer-controller/ (Helm values).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - config-server
+  - discovery-server
+  - api-gateway
+  - customers-service
+  - visits-service
+  - vets-service
+  - genai-service
+  - admin-server

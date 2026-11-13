@@ -1,0 +1,18 @@
+# Non-secret configuration for customers-service (PETPLAT-41)
+# Spec: docs/technical-spec.md#environment-variables-per-service
+#
+# Template: ${RDS_ENDPOINT} is filled from `terraform output -raw rds_endpoint`
+# by ./scripts/render-overlay.sh {env}. Credentials come from the
+# ESO-synced Secret "rds-credentials", never from this ConfigMap.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: customers-service-config
+  labels:
+    app.kubernetes.io/name: customers-service
+    app.kubernetes.io/part-of: petclinic
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: service
+data:
+  CONFIG_SERVER_URL: http://config-server:8888
+  SPRING_DATASOURCE_URL: jdbc:mysql://${RDS_ENDPOINT}:3306/petclinic

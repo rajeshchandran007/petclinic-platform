@@ -1,0 +1,40 @@
+# Application namespaces (PETPLAT-38)
+# Spec: docs/technical-spec.md#namespaces, #pod-security-admission
+#
+# Cluster-scoped, applied directly (not part of the overlays, whose namespace
+# transformer would rename it):
+#   kubectl apply -f k8s/base/namespaces.yaml
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: petclinic-dev
+  labels:
+    app.kubernetes.io/name: petclinic-dev
+    app.kubernetes.io/part-of: petclinic
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: namespace
+    environment: dev
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: petclinic-prod
+  labels:
+    app.kubernetes.io/name: petclinic-prod
+    app.kubernetes.io/part-of: petclinic
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: namespace
+    environment: prod
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest

@@ -1,0 +1,22 @@
+# ClusterIP Service for discovery-server (PETPLAT-40)
+# Spec: docs/technical-spec.md#service-inventory
+apiVersion: v1
+kind: Service
+metadata:
+  name: discovery-server
+  labels:
+    app.kubernetes.io/name: discovery-server
+    app.kubernetes.io/part-of: petclinic
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: server
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: discovery-server
+    app.kubernetes.io/part-of: petclinic
+  ports:
+    - name: http
+      port: 8761
+      targetPort: http
+      protocol: TCP
+      appProtocol: http

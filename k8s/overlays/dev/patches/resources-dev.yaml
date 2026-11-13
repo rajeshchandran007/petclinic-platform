@@ -1,0 +1,4 @@
+# Dev resource reduction (PETPLAT-45): container 0 CPU request -> 50m.
+- op: replace
+  path: /spec/template/spec/containers/0/resources/requests/cpu
+  value: 50m
