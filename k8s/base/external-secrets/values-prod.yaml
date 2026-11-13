@@ -1,0 +1,33 @@
+# Prod overrides for External Secrets Operator (PETPLAT-34), layered on values.yaml
+# by ./scripts/install-external-secrets.sh prod.
+#
+# Two replicas of the controller (leader election) and webhook so a node drain
+# never blocks secret syncs or ExternalSecret admission.
+
+replicaCount: 2
+leaderElect: true
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: external-secrets
+
+webhook:
+  replicaCount: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: external-secrets-webhook

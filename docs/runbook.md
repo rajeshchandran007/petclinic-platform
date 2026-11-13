@@ -1,6 +1,6 @@
 # Petclinic Platform Runbook
 
-**Last Updated:** 2026-11-12
+**Last Updated:** 2026-11-13
 
 **Purpose:** Step-by-step procedures for day-to-day operation of the Petclinic platform on AWS (EKS, Terraform). Each procedure applies to either environment; replace `{env}` with `dev` or `prod`.
 
@@ -12,6 +12,9 @@
 - [Procedure: Log in to ECR](#procedure-log-in-to-ecr)
 - [Procedure: Build and push service images to ECR](#procedure-build-and-push-service-images-to-ecr)
 - [Procedure: Expose the app over HTTPS (DNS, LB controller, Ingress)](#procedure-expose-the-app-over-https-dns-lb-controller-ingress)
+- [Procedure: Install External Secrets Operator and sync app secrets](#procedure-install-external-secrets-operator-and-sync-app-secrets)
+- [Procedure: Set or rotate the OpenAI API key](#procedure-set-or-rotate-the-openai-api-key)
+- [Procedure: Add a new application secret](#procedure-add-a-new-application-secret)
 
 ---
 
@@ -242,3 +245,111 @@ Maven builds only the JARs. `docker buildx` builds `linux/arm64` images for the 
 - Remove the ALB: `kubectl -n petclinic-dev delete ingress api-gateway`. The controller deletes the ALB and its target groups.
 - Uninstall the controller only after all Ingresses are gone: `helm uninstall aws-load-balancer-controller -n kube-system`.
 - The hosted zone has `prevent_destroy`. Prod reuses it and the registrar points at its name servers, so do not delete it.
+
+---
+
+## Secrets (AWS Secrets Manager + External Secrets Operator)
+
+Secrets live only in AWS Secrets Manager under `petclinic/{env}/...`. External Secrets Operator (ESO) copies them into Kubernetes Secrets. Nothing secret is stored in Git, in Terraform state or in plan files.
+
+| Piece | Where |
+|-------|-------|
+| `petclinic/{env}/rds-credentials` (JSON `username`/`password`) | `terraform/modules/rds` (PETPLAT-23) |
+| `petclinic/{env}/openai-api-key` (plaintext) | `terraform/modules/secrets` (PETPLAT-33) |
+| IRSA role `petclinic-{env}-eso-role` (read-only on `petclinic/{env}/*`) | `terraform/modules/secrets/irsa.tf` (PETPLAT-37) |
+| ESO install (CRDs + controller), `ClusterSecretStore aws-secrets-manager` | `scripts/install-external-secrets.sh`, `k8s/base/external-secrets/` (PETPLAT-34) |
+| `ExternalSecret` CRs `rds-credentials`, `openai-api-key` | `k8s/base/external-secrets/`, rendered by `scripts/render-external-secrets.sh` (PETPLAT-35/36) |
+
+### Procedure: Install External Secrets Operator and sync app secrets
+
+**When:** First-time setup of an environment, after re-creating the cluster, or to upgrade ESO (bump `CHART_VERSION` in the script).
+**Who:** Platform engineer with Terraform apply rights and cluster-admin access.
+**Time:** 10 min.
+
+**Steps:**
+1. Optional: export the OpenAI key so the first apply stores it. Otherwise the non-secret placeholder `PLACEHOLDER-NOT-CONFIGURED` is stored (see [Set or rotate the OpenAI API key](#procedure-set-or-rotate-the-openai-api-key)).
+   ```bash
+   export TF_VAR_openai_api_key='sk-...'   # never put this in terraform.tfvars
+   ```
+2. Plan and apply the secrets module and the ESO IRSA role:
+   ```bash
+   cd terraform/environments/{env}
+   terraform plan -out plan.out
+   terraform apply plan.out
+   terraform output eso_role_arn
+   ```
+3. Install ESO. This renders chart 2.15.0 with `helm template`, applies it with `kubectl apply --server-side`, creates the `ClusterSecretStore` and runs a smoke test. The smoke test syncs the `username` of `petclinic/{env}/rds-credentials` into a temporary Secret in `petclinic-{env}` (creating that namespace if missing), then deletes it.
+   ```bash
+   ./scripts/install-external-secrets.sh {env}
+   ```
+4. Create the app namespace if it does not exist yet (PETPLAT-38 manages it later), then apply the ExternalSecrets:
+   ```bash
+   kubectl create namespace petclinic-{env} --dry-run=client -o yaml | kubectl apply -f -
+   ./scripts/render-external-secrets.sh {env} | kubectl apply -f -
+   ```
+
+**Verify:**
+- `kubectl -n external-secrets get pods`: the `external-secrets`, `-webhook` and `-cert-controller` pods are `Running`.
+- `kubectl get clustersecretstore aws-secrets-manager`: `STATUS Valid`, `READY True`.
+- `kubectl -n petclinic-{env} get externalsecret`: both show `SecretSynced` and `READY True`.
+- `kubectl -n petclinic-{env} get secret rds-credentials openai-api-key`: both exist.
+- `kubectl -n petclinic-{env} describe secret rds-credentials` lists the `username` and `password` keys with their sizes, without printing the values.
+
+**Troubleshooting:**
+- `SecretSyncedError` / `AccessDeniedException`: check the role annotation with `kubectl -n external-secrets get sa external-secrets-sa -o yaml`. It must match `terraform output eso_role_arn`. The role trusts only `system:serviceaccount:external-secrets:external-secrets-sa` and only reads `petclinic/{env}/*`.
+- `ResourceNotFoundException`: the Secrets Manager secret does not exist. Run `terraform output app_secret_arns` and `terraform output rds_secret_name`.
+
+**Rollback:**
+- Remove the app ExternalSecrets: `./scripts/render-external-secrets.sh {env} | kubectl delete -f -`. Each K8s Secret is owned by its ExternalSecret and is deleted with it, so pods that use it fail on restart.
+- Remove ESO: render it the same way as the script (`helm template ... | kubectl delete -f -`). Deleting the CRDs deletes every ExternalSecret and SecretStore in the cluster.
+
+### Procedure: Set or rotate the OpenAI API key
+
+**When:** genai-service needs a real key (the first apply stores `PLACEHOLDER-NOT-CONFIGURED`), or the key is rotated.
+**Who:** Platform engineer with Terraform apply rights.
+**Time:** 5 min, plus up to 1h for ESO to refresh unless you force a sync.
+
+The variable is `ephemeral` and the value goes only to the write-only argument `secret_string_wo`. Terraform writes it only when `openai_api_key_version` changes, so a plain re-apply with a new key does nothing. A plan with a version above 1 and no `TF_VAR_openai_api_key` fails validation, so a forgotten export can never overwrite the live key with the placeholder.
+
+**Steps:**
+1. Increment `openai_api_key_version` in `terraform/environments/{env}/terraform.tfvars` (for example `1` to `2`).
+2. Export the key in the same shell and apply:
+   ```bash
+   export TF_VAR_openai_api_key='sk-...'
+   cd terraform/environments/{env}
+   terraform plan -out plan.out    # shows secret_string_wo_version 1 -> 2; the value stays hidden
+   terraform apply plan.out
+   unset TF_VAR_openai_api_key
+   ```
+3. Sync now instead of waiting for the 1h refresh, then restart the consumer:
+   ```bash
+   kubectl -n petclinic-{env} annotate externalsecret openai-api-key force-sync="$(date +%s)" --overwrite
+   kubectl -n petclinic-{env} rollout restart deployment/genai-service
+   ```
+
+**Verify:** `kubectl -n petclinic-{env} get externalsecret openai-api-key` shows `SecretSynced` with a recent refresh time, and the genai chat in the UI answers.
+
+**Rollback:** repeat the steps with the previous key and a further incremented version. Secrets Manager also keeps the previous value as the `AWSPREVIOUS` version.
+
+### Procedure: Add a new application secret
+
+**When:** a service needs a new credential, such as an API key or a token.
+**Who:** Platform engineer.
+**Time:** 20 min.
+
+**Steps:**
+1. **Terraform:** in `terraform/modules/secrets/`:
+   - Add an `aws_secretsmanager_secret` named `${local.secret_prefix}/<name>`. The `petclinic/{env}/` prefix is what the ESO role can read.
+   - Add an `aws_secretsmanager_secret_version` with `secret_string_wo` and `secret_string_wo_version`.
+   - In `variables.tf`, add the value variable with `sensitive = true`, `ephemeral = true` and `default = null`, plus a `<name>_version` number variable.
+   - In `outputs.tf`, add the ARN to `secret_arns`.
+   - Pass both variables through in `terraform/environments/{dev,prod}/` (`variables.tf` and the `module "secrets"` block).
+   - No IAM change is needed while the name stays under `petclinic/{env}/`.
+2. **Never commit the value.** Export it as `TF_VAR_<name>`, then run `terraform fmt -recursive`, `terraform validate`, `terraform plan -out plan.out` and `terraform apply plan.out`.
+3. **ExternalSecret:** copy `k8s/base/external-secrets/openai-api-key.yaml` to `k8s/base/external-secrets/<name>.yaml`. Change `metadata.name`, `target.name`, the labels, `data[].secretKey` (the env var name the app expects) and `remoteRef.key: petclinic/${ENVIRONMENT}/<name>`. For a JSON secret, add a `remoteRef.property` per key, as in `rds-credentials.yaml`.
+4. Add the file to the `for manifest in ...` list in `scripts/render-external-secrets.sh`, then apply it: `./scripts/render-external-secrets.sh {env} | kubectl apply -f -`
+5. **Consume it:** reference the K8s Secret from the service's Helm values (`helm-values/<service>.yaml`) with `secretKeyRef` or `envFrom`. Never copy the value into a values file.
+
+**Verify:** `kubectl -n petclinic-{env} get externalsecret <name>` is `READY True`, and `kubectl -n petclinic-{env} get secret <name>` exists.
+
+**Rollback:** delete the ExternalSecret manifest and remove the Terraform resources. In prod the secret stays recoverable for 7 days (`secret_recovery_window_in_days`).

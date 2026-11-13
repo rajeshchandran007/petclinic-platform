@@ -153,3 +153,22 @@ output "lb_controller_role_arn" {
   description = "IRSA role ARN for kube-system/aws-load-balancer-controller."
   value       = module.eks.lb_controller_role_arn
 }
+
+################################################################################
+# Secrets & External Secrets Operator
+################################################################################
+
+output "openai_secret_arn" {
+  description = "Secrets Manager ARN of petclinic/{env}/openai-api-key."
+  value       = module.secrets.openai_secret_arn
+}
+
+output "app_secret_arns" {
+  description = "Map of logical name => ARN for the non-RDS secrets managed by the secrets module."
+  value       = module.secrets.secret_arns
+}
+
+output "eso_role_arn" {
+  description = "IRSA role ARN for external-secrets/external-secrets-sa (used by scripts/install-external-secrets.sh)."
+  value       = module.secrets.eso_role_arn
+}

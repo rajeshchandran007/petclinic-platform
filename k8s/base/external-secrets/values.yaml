@@ -1,0 +1,136 @@
+# Helm values for External Secrets Operator (PETPLAT-34)
+# Chart: external-secrets/external-secrets (https://charts.external-secrets.io)
+#
+# Rendered with `helm template` and installed with `kubectl apply --server-side`
+# (CRDs + controller, technical-spec.md#external-secrets-operator-eso) by
+#   ./scripts/install-external-secrets.sh {env}
+# The script adds values-prod.yaml for prod and sets the IRSA role ARN on the
+# service account from `terraform output eso_role_arn`.
+#
+# Third-party chart resources keep the chart's own name/instance/managed-by=Helm
+# labels; commonLabels adds the petclinic part-of/component labels.
+
+# CRDs ship with the rendered manifest. ESO 2.x serves only external-secrets.io/v1.
+installCRDs: true
+
+# Service account bound to the IRSA role petclinic-{env}-eso-role. Name and
+# namespace must match the role's trust policy (terraform/modules/secrets/irsa.tf)
+# and the ClusterSecretStore's auth.jwt.serviceAccountRef.
+serviceAccount:
+  create: true
+  name: external-secrets-sa
+  # annotations:
+  #   eks.amazonaws.com/role-arn: set by the install script
+
+# Only the AWS Secrets Manager provider is used.
+bitwarden-sdk-server:
+  enabled: false
+
+commonLabels:
+  app.kubernetes.io/part-of: petclinic
+  app.kubernetes.io/component: infrastructure
+
+replicaCount: 1
+leaderElect: false
+
+# Health probes (disabled by default in the chart).
+livenessProbe:
+  enabled: true
+readinessProbe:
+  enabled: true
+
+# Project standard (CLAUDE.md): 128Mi request / 512Mi limit.
+resources:
+  requests:
+    cpu: 10m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Hardened pod/container security (technical-spec.md#securitycontext-all-deployments).
+# Pinned explicitly so a chart upgrade cannot silently relax the defaults; the
+# namespace enforces Pod Security "restricted".
+podSecurityContext:
+  enabled: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  enabled: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+webhook:
+  replicaCount: 1
+  livenessProbe:
+    enabled: true
+  readinessProbe:
+    enabled: true
+  resources:
+    requests:
+      cpu: 10m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  podSecurityContext:
+    enabled: true
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    enabled: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+certController:
+  replicaCount: 1
+  livenessProbe:
+    enabled: true
+  readinessProbe:
+    enabled: true
+  resources:
+    requests:
+      cpu: 10m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  podSecurityContext:
+    enabled: true
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    enabled: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 1000
+    seccompProfile:
+      type: RuntimeDefault

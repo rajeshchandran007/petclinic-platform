@@ -71,3 +71,49 @@ variable "rds_engine_version" {
   type        = string
   default     = "8.0"
 }
+
+################################################################################
+# Secrets (E-7) — values come from TF_VAR_* environment variables, never files
+################################################################################
+
+variable "openai_api_key" {
+  description = "OpenAI API key for genai-service (export TF_VAR_openai_api_key). Ephemeral + write-only: never stored in state or plan files. Null stores a placeholder."
+  type        = string
+  default     = null
+  sensitive   = true
+  ephemeral   = true
+}
+
+variable "openai_api_key_version" {
+  description = "Increment to (re)write openai_api_key to petclinic/{env}/openai-api-key."
+  type        = number
+  default     = 1
+}
+
+variable "create_config_server_git_secrets" {
+  description = "Create petclinic/{env}/config-server/git-{username,password} (private config repo only)."
+  type        = bool
+  default     = false
+}
+
+variable "config_server_git_username" {
+  description = "Config Server Git username (export TF_VAR_config_server_git_username). Ephemeral + write-only."
+  type        = string
+  default     = null
+  sensitive   = true
+  ephemeral   = true
+}
+
+variable "config_server_git_password" {
+  description = "Config Server Git password or token (export TF_VAR_config_server_git_password). Ephemeral + write-only."
+  type        = string
+  default     = null
+  sensitive   = true
+  ephemeral   = true
+}
+
+variable "config_server_git_credentials_version" {
+  description = "Increment to (re)write the Config Server Git credentials."
+  type        = number
+  default     = 1
+}

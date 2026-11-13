@@ -1,0 +1,43 @@
+# ExternalSecret: OpenAI API key (PETPLAT-36)
+# Spec: docs/technical-spec.md#externalsecret-manifests, #genai-service-configuration
+#
+# Syncs the plaintext secret petclinic/{env}/openai-api-key (created by the
+# secrets module, PETPLAT-33) into the K8s Secret "openai-api-key" with key
+# OPENAI_API_KEY, consumed by genai-service via envFrom/secretKeyRef.
+#
+# Template: ${...} placeholders are filled by
+#   ./scripts/render-external-secrets.sh {env} | kubectl apply -f -
+#
+#   ${ENVIRONMENT}  dev | prod
+#   ${NAMESPACE}    petclinic-{env}
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: openai-api-key
+  namespace: ${NAMESPACE}
+  labels:
+    app.kubernetes.io/name: openai-api-key
+    app.kubernetes.io/part-of: petclinic
+    app.kubernetes.io/component: infrastructure
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: openai-api-key
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    template:
+      type: Opaque
+      metadata:
+        labels:
+          app.kubernetes.io/name: openai-api-key
+          app.kubernetes.io/part-of: petclinic
+          app.kubernetes.io/component: infrastructure
+          app.kubernetes.io/managed-by: external-secrets
+  data:
+    - secretKey: OPENAI_API_KEY
+      remoteRef:
+        key: petclinic/${ENVIRONMENT}/openai-api-key

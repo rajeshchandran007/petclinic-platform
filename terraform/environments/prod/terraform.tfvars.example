@@ -14,3 +14,10 @@ eks_cluster_version = "1.35"
 eks_public_access_cidrs = ["203.0.113.10/32"]
 # Extra cluster admins (IAM users/roles, not root). The Terraform caller is added automatically.
 eks_cluster_admin_principal_arns = []
+
+# Secrets (technical-spec.md#secrets-management) — NEVER put secret values here.
+# Export them in your shell instead; they are ephemeral and never stored in state:
+#   export TF_VAR_openai_api_key='sk-...'
+# then bump the version below so Terraform writes the new value.
+openai_api_key_version           = 1
+create_config_server_git_secrets = false

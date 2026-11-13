@@ -126,8 +126,36 @@ module "rds" {
   tags = merge(var.additional_tags, { Component = "database" })
 }
 
+################################################################################
+# Secrets (E-7: PETPLAT-33/37) - non-RDS app secrets + ESO IRSA role
+################################################################################
+
+module "secrets" {
+  source = "../../modules/secrets"
+
+  project     = var.project
+  environment = var.environment
+
+  # technical-spec.md#secrets — petclinic/prod/openai-api-key. Values are
+  # ephemeral (TF_VAR_*), written write-only; bump the *_version to (re)write.
+  openai_api_key         = var.openai_api_key
+  openai_api_key_version = var.openai_api_key_version
+
+  create_config_server_git_secrets      = var.create_config_server_git_secrets
+  config_server_git_username            = var.config_server_git_username
+  config_server_git_password            = var.config_server_git_password
+  config_server_git_credentials_version = var.config_server_git_credentials_version
+
+  # Prod: 7-day recovery window for accidental deletes.
+  secret_recovery_window_in_days = 7
+
+  # technical-spec.md#irsa-roles — petclinic-prod-eso-role for external-secrets/external-secrets-sa
+  oidc_provider_arn = module.eks.oidc_provider_arn
+
+  tags = merge(var.additional_tags, { Component = "secrets" })
+}
+
 # Remaining module calls are added by their owning epics:
 #   module "dns"           -> E-6  (terraform/modules/dns)
-#   module "secrets"       -> E-7  (terraform/modules/secrets)
 #   module "observability" -> E-11 (terraform/modules/observability)
 #   module "karpenter"     -> E-14 (terraform/modules/karpenter)

@@ -1,0 +1,15 @@
+# Namespace for External Secrets Operator (PETPLAT-34)
+# Spec: docs/technical-spec.md#external-secrets-operator-eso
+# Applied by scripts/install-external-secrets.sh before the operator.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: external-secrets
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/part-of: petclinic
+    app.kubernetes.io/component: infrastructure
+    app.kubernetes.io/managed-by: kubectl
+    # ESO pods run non-root, read-only, all capabilities dropped, RuntimeDefault seccomp.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
