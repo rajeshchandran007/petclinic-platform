@@ -98,3 +98,23 @@ After you are done, run terraform validate in both dev and prod.
 Then use the terraform-reviewer agent to review the Terraform module for security and best practices.
 Then use the k8s-validator agent to validate the Kubernetes manifests against project standards.
 Fix any issues either reviewer finds, then validate again.
+
+
+## Prompt-6
+Read the following stories from docs/jira-backlog.md:
+  - PetclinicPlatform33: Secrets Manager Terraform resources (non-RDS secrets)
+  - PetclinicPlatform34: Install External Secrets Operator on EKS
+  - PetclinicPlatform35: ExternalSecret for RDS credentials
+  - PetclinicPlatform36: ExternalSecret for OpenAI API key
+  - PetclinicPlatform37: IRSA role for External Secrets Operator
+Read the technical spec at docs/technical-spec.md, specifically:
+  - Secrets Management section
+  - IRSA Roles section (ESO role)
+  - Terraform Modules section (Secrets module)
+
+Build everything these stories require. Follow the acceptance criteria exactly.
+The OpenAI API key value should be a sensitive Terraform variable - never hardcoded.
+After you are done, run terraform validate in both dev and prod.
+Then use the terraform-reviewer agent to review the Terraform module for security and best practices.
+Then use the k8s-validator agent to validate the Kubernetes manifests and CRDs against project standards.
+Fix any issues either reviewer finds, then validate again.
